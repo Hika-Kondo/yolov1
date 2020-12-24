@@ -1,0 +1,9 @@
+pred_classes: 1
+train_im: /images
+val_im: /val
+target_f: /tmp/bt_im.txt
+target_val: /tmp/val.txt
+lr: 0.001
+epochs: 10
+batch_size: 2
+

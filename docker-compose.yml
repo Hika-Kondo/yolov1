@@ -1,0 +1,19 @@
+version: '3'
+services:
+    yolov1:
+        runtime: nvidia
+        user: $UID:$GID
+        build:
+            context: .
+            args:
+                UID: $UID
+                GID: $GID
+                UNAME: $UNAME
+        shm_size: '2gb'
+        volumes:
+            - ./yolov1:/src
+            - ./res:/res
+            - ../RawData/resize_images:/images
+            - ../RawData/val:/val
+            - ../RawData/test/:/test
+        command: python /src/train.py 
