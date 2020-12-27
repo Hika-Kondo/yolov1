@@ -98,7 +98,7 @@ def decoder(pred):
     return boxes[keep],cls_indexs[keep],probs[keep]
 
 
-def nms(bboxes,scores,threshold=0.2):
+def nms(bboxes,scores,threshold=0.05):
     '''
     bboxes(tensor) [N,4]
     scores(tensor) [N,]

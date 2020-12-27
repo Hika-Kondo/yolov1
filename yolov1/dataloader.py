@@ -93,8 +93,8 @@ class yoloDataset(data.Dataset):
         img = cv2.imread(os.path.join(self.root,fname))
         boxes = self.boxes[idx].clone()
         labels = self.labels[idx].clone()
-
         img, boxes, labels = self.RandomImageCrop(img, boxes, labels)
+
         # if dataset is train dataset, preprocess
         if self.train:
             #img = self.random_bright(img)
