@@ -94,17 +94,18 @@ class yoloDataset(data.Dataset):
         boxes = self.boxes[idx].clone()
         labels = self.labels[idx].clone()
 
+        img, boxes, labels = self.RandomImageCrop(img, boxes, labels)
         # if dataset is train dataset, preprocess
         if self.train:
             #img = self.random_bright(img)
-            img, boxes = self.random_flip(img, boxes)
-            img,boxes = self.randomScale(img,boxes)
+            # img, boxes = self.random_flip(img, boxes)
+            # img,boxes = self.randomScale(img,boxes)
             img = self.randomBlur(img)
             img = self.RandomBrightness(img)
             img = self.RandomHue(img)
             img = self.RandomSaturation(img)
-            img,boxes,labels = self.randomShift(img,boxes,labels)
-            img,boxes,labels = self.randomCrop(img,boxes,labels)
+            # img,boxes,labels = self.randomShift(img,boxes,labels)
+            # img,boxes,labels = self.randomCrop(img,boxes,labels)
         # #debug
         # box_show = boxes.numpy().reshape(-1)
         # print(box_show)
@@ -120,12 +121,11 @@ class yoloDataset(data.Dataset):
         h,w,_ = img.shape
         boxes /= torch.Tensor([w,h,w,h]).expand_as(boxes)
         img = self.BGR2RGB(img) #because pytorch pretrained model use RGB
-        img = self.subMean(img,self.mean) #减去均值
-        img = cv2.resize(img,(self.image_size,self.image_size))
+        # img = self.subMean(img,self.mean) #减去均值
+        # img = cv2.resize(img,(self.image_size,self.image_size))
         target = self.encoder(boxes,labels)# 7x7x30
         for t in self.transform:
             img = t(img)
-
         return img,target
 
     def __len__(self):
@@ -155,7 +155,7 @@ class yoloDataset(data.Dataset):
         cxcy = (boxes[:,2:]+boxes[:,:2])/2 # バウンディングボックスの中心の座標
         for i in range(cxcy.size()[0]):
             cxcy_sample = cxcy[i]
-            ij = (cxcy_sample/cell_size).ceil()-1 #
+            ij = (cxcy_sample/cell_size).ceil() - 1 #
             target[int(ij[1]),int(ij[0]),4] = 1
             target[int(ij[1]),int(ij[0]),9] = 1
             target[int(ij[1]),int(ij[0]),int(labels[i])+9] = 1
@@ -320,17 +320,76 @@ class yoloDataset(data.Dataset):
             im = im.clip(min=0,max=255).astype(np.uint8)
         return im
 
+    def RandomImageCrop(self, im, boxes, labels):
+        """
+        画像をself.im_sizeの大きさに切り出す
+        切り出した画像のなかに当てはまるバウンディングボックスを生成する
+        """
+        # im -> cv2(numpy)
+        # boxes -> list
+        # x_min のインデックスは4*idx
+        # y_min のインデックスは4*idx + 1
+        # x_max のインデックスは4*idx + 2
+        # y_max のインデックスは4*idx + 3
+        boxes = boxes.tolist()
+        labels = labels.tolist()
+        h, w, _ = im.shape
+        crop_x_min = random.randint(0, w - self.image_size)
+        crop_y_min = random.randint(0, h - self.image_size)
+        crop_x_max = crop_x_min + self.image_size
+        crop_y_max = crop_y_min + self.image_size
+
+        return_box = []
+        return_label = []
+        return_im = im[crop_y_min:crop_y_max, crop_x_min: crop_x_max]
+
+        for idx in range(len(boxes)):
+            box = boxes[idx]
+            label = labels[idx]
+            box_x_min = box[0]
+            box_y_min = box[1]
+            box_x_max = box[2]
+            box_y_max = box[3]
+            # cropの完全に外の場合
+            if box_x_max < crop_x_min or box_y_max < crop_y_min or\
+            box_x_min > crop_x_max or box_y_min > crop_y_max:
+                continue
+            # cropにboxが一部でも重なっている場合
+            else:
+                return_box_item = []
+                box_x_min -= crop_x_min; box_y_min -= crop_y_min
+                box_x_max -= crop_x_min; box_y_max -= crop_y_min
+                x_min = max(box_x_min, 0)
+                y_min = max(box_y_min, 0)
+                x_max = min(box_x_max, self.image_size)
+                y_max = min(box_y_max, self.image_size)
+                return_box_item.append(x_min)
+                return_box_item.append(y_min)
+                return_box_item.append(x_max)
+                return_box_item.append(y_max)
+                return_box.append(return_box_item)
+                return_label.append(label)
+        return_box = torch.Tensor(return_box)
+        return_label = torch.LongTensor(return_label)
+        return return_im, return_box, return_label
+
 def main():
     from torch.utils.data import DataLoader
     import torchvision.transforms as transforms
+    from torchvision.utils import save_image
+    from PIL import Image
+
+    from visualize import save_bboxim
+
     file_root = '/images/'
     # file_root = "/val"
-    train_dataset = yoloDataset(root=file_root,list_file='/tmp/val.txt',train=True,transform = [transforms.ToTensor()],pred_classes=1)
+    # train_dataset = yoloDataset(root=file_root,list_file='/tmp/val.txt',train=True,transform = [transforms.ToTensor()],pred_classes=1)
+    train_dataset = yoloDataset(root=file_root,list_file='/tmp/bt_im.txt',train=True,transform = [transforms.ToTensor()],pred_classes=1)
     train_loader = DataLoader(train_dataset,batch_size=1,shuffle=False,num_workers=0)
-    train_iter = iter(train_loader)
-    for i in range(100):
-        img,target = next(train_iter)
-        print("img: \n{}\ntarget: \n{}".format(img,target))
+    for idx, (image, target) in enumerate(train_loader):
+        print("idx :{} image: {} target: {}".format(idx, image.size(), target.size()))
+        save_bboxim(image, target, "test_im.jpg", "/res/")
+        break
 
 
 if __name__ == '__main__':
