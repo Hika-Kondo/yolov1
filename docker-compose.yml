@@ -16,4 +16,4 @@ services:
             - ../RawData/resize_images:/images
             - ../RawData/val:/val
             - ../RawData/test/:/test
-        command: python /src/train.py 
+        command: python /src/train.py
