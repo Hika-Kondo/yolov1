@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import torch
 import torch.nn as nn
@@ -12,12 +13,13 @@ import hydra
 from net import resnet50
 from loss import yoloLoss
 from dataloader import yoloDataset
+from visualize import save_res_im
 
 
 class Yolo(LightningModule):
 
     def __init__(self, net, loss_func, train_root, val_root, target_file, lr, epochs, pred_classes,
-            batch_size,):
+            batch_size, im_save):
         super().__init__()
         self.net = net
         self.criterion = loss_func
@@ -28,6 +30,11 @@ class Yolo(LightningModule):
         self.epochs = epochs
         self.pred_classes = pred_classes
         self.batch_size = batch_size
+
+        # self.im_save = Path("/res/res_im").mkdir(exist_ok=True, parents=True)
+        self.im_save = Path("/res/res_im")
+        self.im_save.mkdir(exist_ok=True, parents=True)
+        self.now_epoch = 1
     
     def forward(self, x):
         return self.net(x)
@@ -42,6 +49,8 @@ class Yolo(LightningModule):
         x, y = batch
         logits = self(x)
         loss = self.criterion(logits, y)
+        save_res_im(x, logits, y, "res_{}.jpg".format(self.now_epoch), str(self.im_save))
+        self.now_epoch += 1
         return loss
 
     def configure_optimizers(self):
@@ -60,8 +69,9 @@ def main(cfg):
         if k in dd.keys() and not k.startswith('fc'):
             dd[k] = new_state_dict[k]
     net.load_state_dict(dd)
+    print(cfg.im_save)
     yolo = Yolo(net, yoloLoss(5, 0.5, cfg.pred_classes), cfg.train_im, cfg.val_im, cfg.target_f, cfg.lr,
-            cfg.epochs, cfg.pred_classes, cfg.batch_size)
+            cfg.epochs, cfg.pred_classes, cfg.batch_size, cfg.im_save)
 
     dataset = yoloDataset(root=cfg.train_im, list_file=[cfg.target_f],
             train=True, transform=[transforms.ToTensor()], pred_classes=cfg.pred_classes)
