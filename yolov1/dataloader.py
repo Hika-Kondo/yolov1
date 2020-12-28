@@ -93,8 +93,8 @@ class yoloDataset(data.Dataset):
         img = cv2.imread(os.path.join(self.root,fname))
         boxes = self.boxes[idx].clone()
         labels = self.labels[idx].clone()
-        img, boxes, labels = self.RandomImageCrop(img, boxes, labels)
 
+        img, boxes, labels = self.RandomImageCrop(img, boxes, labels)
         # if dataset is train dataset, preprocess
         if self.train:
             #img = self.random_bright(img)
@@ -142,9 +142,11 @@ class yoloDataset(data.Dataset):
         cell_size = 1./grid_num
         wh = boxes[:,2:]-boxes[:,:2] # バウンディングボックスのサイズ
         cxcy = (boxes[:,2:]+boxes[:,:2])/2 # バウンディングボックスの中心の座標
+        # print(cxcy.size(0))
         for i in range(cxcy.size()[0]):
             cxcy_sample = cxcy[i]
             ij = (cxcy_sample/cell_size).ceil() - 1 #
+            # print(ij, i+1)
             target[int(ij[1]),int(ij[0]),4] = 1
             target[int(ij[1]),int(ij[0]),9] = 1
             target[int(ij[1]),int(ij[0]),int(labels[i])+9] = 1
@@ -154,6 +156,11 @@ class yoloDataset(data.Dataset):
             target[int(ij[1]),int(ij[0]),:2] = delta_xy
             target[int(ij[1]),int(ij[0]),7:9] = wh[i]
             target[int(ij[1]),int(ij[0]),5:7] = delta_xy
+            cunt = 0
+            for line in target.permute(2, 0, 1)[4].tolist():
+                line = [int(i) for i in line]
+                # print(line)
+                cunt += sum(line)
         return target
 
     def BGR2RGB(self,img):
@@ -331,18 +338,23 @@ class yoloDataset(data.Dataset):
         return_box = []
         return_label = []
         return_im = im[crop_y_min:crop_y_max, crop_x_min: crop_x_max]
+        # print(crop_x_min, crop_y_min, crop_x_max, crop_y_max)
 
         for idx in range(len(boxes)):
             box = boxes[idx]
             label = labels[idx]
-            box_x_min = box[0]
-            box_y_min = box[1]
-            box_x_max = box[2]
-            box_y_max = box[3]
+            box_x_min = box[0] # left of bbox
+            box_y_min = box[1] # top of bbox
+            box_x_max = box[2] # right of bbox
+            box_y_max = box[3] # bottom of bbox
+
             # cropの完全に外の場合
-            if box_x_max < crop_x_min or box_y_max < crop_y_min or\
-            box_x_min > crop_x_max or box_y_min > crop_y_max:
+            if box_x_max < crop_x_min or \
+                    box_y_max < crop_y_min or \
+                    box_x_min > crop_x_max or \
+                    box_y_min > crop_y_max:
                 continue
+
             # cropにboxが一部でも重なっている場合
             else:
                 return_box_item = []
@@ -352,12 +364,15 @@ class yoloDataset(data.Dataset):
                 y_min = max(box_y_min, 0)
                 x_max = min(box_x_max, self.image_size)
                 y_max = min(box_y_max, self.image_size)
+                # print(x_min, y_min, x_max, y_max)
                 return_box_item.append(x_min)
                 return_box_item.append(y_min)
                 return_box_item.append(x_max)
                 return_box_item.append(y_max)
                 return_box.append(return_box_item)
                 return_label.append(label)
+        
+        # print(len(return_box))
         return_box = torch.Tensor(return_box)
         return_label = torch.LongTensor(return_label)
         return return_im, return_box, return_label
@@ -367,17 +382,30 @@ def main():
     import torchvision.transforms as transforms
     from torchvision.utils import save_image
     from PIL import Image
+    from matplotlib import pyplot as plt
 
-    from visualize import save_bboxim
+    from visualize import save_res_im
+    import warnings
+    warnings.simplefilter('ignore')
 
-    file_root = '/images/'
-    # file_root = "/val"
-    # train_dataset = yoloDataset(root=file_root,list_file='/tmp/val.txt',train=True,transform = [transforms.ToTensor()],pred_classes=1)
-    train_dataset = yoloDataset(root=file_root,list_file='/tmp/bt_im.txt',train=True,transform = [transforms.ToTensor()],pred_classes=1)
+    # file_root = '/images/'
+    # train_dataset = yoloDataset(root=file_root,list_file='/tmp/bt_im.txt',train=True,transform = [transforms.ToTensor()],pred_classes=1)
+    file_root = "/val"
+    train_dataset = yoloDataset(root=file_root,list_file='/tmp/val.txt',train=False,transform = [transforms.ToTensor()],pred_classes=1)
     train_loader = DataLoader(train_dataset,batch_size=1,shuffle=False,num_workers=0)
     for idx, (image, target) in enumerate(train_loader):
         print("idx :{} image: {} target: {}".format(idx, image.size(), target.size()))
-        save_bboxim(image, target, "test_im.jpg", "/res/")
+        save_res_im(image, target, target, "res_img.jpg", "/res/test/", draw_ans=False)
+        target = target.permute(0,3,1,2)
+        cunt = 0
+        for i in range(target.size(2)):
+            li = target[0][4][i].tolist()
+            li = [1 if i != 0 else 0 for i in li ]
+            print(li)
+            for l in li:
+                if i == 1:
+                    cunt += 1
+        print(cunt)
         break
 
 

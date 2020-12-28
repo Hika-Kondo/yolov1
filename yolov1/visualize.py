@@ -7,6 +7,7 @@ import cv2
 from PIL import Image
 from PIL import ImageDraw
 import numpy as np
+from matplotlib import pyplot as plt
 
 import os
 
@@ -98,7 +99,7 @@ def decoder(pred):
     return boxes[keep],cls_indexs[keep],probs[keep]
 
 
-def nms(bboxes,scores,threshold=0.05):
+def nms(bboxes,scores,threshold=0.06):
     '''
     bboxes(tensor) [N,4]
     scores(tensor) [N,]
