@@ -18,7 +18,7 @@ class yoloDataset(data.Dataset):
     YOLO dataset Class
     """
 
-    def __init__(self,root,list_file,train,transform, pred_classes, image_size=448):
+    def __init__(self,root,list_file,train,transform, pred_classes, image_size, output_size):
         """
         __init__
         perse input files
@@ -38,6 +38,7 @@ class yoloDataset(data.Dataset):
         self.labels = []
         self.mean = (123,117,104)#RGB
         self.image_size = image_size
+        self.output_size = output_size
         self.pred_classes = pred_classes
 
         # list_fileがlistだった場合、入力の内容を/tmp/listfile.txtに保存する
@@ -94,7 +95,7 @@ class yoloDataset(data.Dataset):
         boxes = self.boxes[idx].clone()
         labels = self.labels[idx].clone()
 
-        img, boxes, labels = self.RandomImageCrop(img, boxes, labels)
+        # img, boxes, labels = self.RandomImageCrop(img, boxes, labels)
         # if dataset is train dataset, preprocess
         if self.train:
             #img = self.random_bright(img)
@@ -108,7 +109,7 @@ class yoloDataset(data.Dataset):
             # img,boxes,labels = self.randomCrop(img,boxes,labels)
 
         h,w,_ = img.shape
-        boxes /= torch.Tensor([w,h,w,h]).expand_as(boxes)
+        # boxes /= torch.Tensor([w,h,w,h]).expand_as(boxes)
         img = self.BGR2RGB(img) #because pytorch pretrained model use RGB
         # img = self.subMean(img,self.mean) #减去均值
         # img = cv2.resize(img,(self.image_size,self.image_size))
@@ -137,25 +138,25 @@ class yoloDataset(data.Dataset):
         # return 7x7x30
         # '''
 
-        grid_num = 14 # グリッドサイズ論文では7
-        target = torch.zeros((grid_num,grid_num,10+self.pred_classes)) # 出力のグリットのTensor
-        cell_size = 1./grid_num
-        wh = boxes[:,2:]-boxes[:,:2] # バウンディングボックスのサイズ
+        # grid_num = 14 # グリッドサイズ論文では7
+        target = torch.zeros((self.output_size[1],self.output_size[0],5+self.pred_classes)) # 出力のグリットのTensor
+        devided_boxes = boxes / torch.Tensor([self.image_size[0],self.image_size[1],self.image_size[0],self.image_size[1]]).expand_as(boxes)
+        wh = devided_boxes[:,2:]-devided_boxes[:,:2] # バウンディングボックスのサイズ
         cxcy = (boxes[:,2:]+boxes[:,:2])/2 # バウンディングボックスの中心の座標
-        # print(cxcy.size(0))
+        cxcy = (cxcy/torch.Tensor([self.image_size[0]/self.output_size[0],self.image_size[1]/self.output_size[1]]).expand_as(cxcy)).ceil()-1
+
         for i in range(cxcy.size()[0]):
-            cxcy_sample = cxcy[i]
-            ij = (cxcy_sample/cell_size).ceil() - 1 #
-            # print(ij, i+1)
+            ij = cxcy[i]
             target[int(ij[1]),int(ij[0]),4] = 1
-            target[int(ij[1]),int(ij[0]),9] = 1
-            target[int(ij[1]),int(ij[0]),int(labels[i])+9] = 1
-            xy = ij*cell_size #匹配到的网格的左上角相对坐标
-            delta_xy = (cxcy_sample -xy)/cell_size
+            # target[int(ij[1]),int(ij[0]),9] = 1
+            # target[int(ij[1]),int(ij[0]),int(labels[i])+9] = 1
+            # boxのサイズ
             target[int(ij[1]),int(ij[0]),2:4] = wh[i]
+            # 中心の座標
+            delta_xy = torch.Tensor(self.output_size)*(boxes[i,2:]+boxes[i,:2])/(2*torch.Tensor(self.image_size)) - ij
             target[int(ij[1]),int(ij[0]),:2] = delta_xy
-            target[int(ij[1]),int(ij[0]),7:9] = wh[i]
-            target[int(ij[1]),int(ij[0]),5:7] = delta_xy
+            # target[int(ij[1]),int(ij[0]),7:9] = wh[i]
+            # target[int(ij[1]),int(ij[0]),5:7] = delta_xy
             cunt = 0
             for line in target.permute(2, 0, 1)[4].tolist():
                 line = [int(i) for i in line]
@@ -371,7 +372,7 @@ class yoloDataset(data.Dataset):
                 return_box_item.append(y_max)
                 return_box.append(return_box_item)
                 return_label.append(label)
-        
+
         # print(len(return_box))
         return_box = torch.Tensor(return_box)
         return_label = torch.LongTensor(return_label)
@@ -388,24 +389,30 @@ def main():
     import warnings
     warnings.simplefilter('ignore')
 
-    # file_root = '/images/'
-    # train_dataset = yoloDataset(root=file_root,list_file='/tmp/bt_im.txt',train=True,transform = [transforms.ToTensor()],pred_classes=1)
-    file_root = "/val"
-    train_dataset = yoloDataset(root=file_root,list_file='/tmp/val.txt',train=False,transform = [transforms.ToTensor()],pred_classes=1)
+    image_size = [1292,485]
+    output_size = image_size
+    for _ in range(5):
+        output_size = [output_size[0]//2, output_size[1]//2]
+
+    file_root = '/images/'
+    train_dataset = yoloDataset(root=file_root,list_file='/tmp/bt_im.txt',train=True,transform = [transforms.ToTensor()],pred_classes=1,
+            image_size=[1292,485], output_size=output_size)
+    # file_root = "/val"
+    # train_dataset = yoloDataset(root=file_root,list_file='/tmp/val.txt',train=False,transform = [transforms.ToTensor()],pred_classes=1)
     train_loader = DataLoader(train_dataset,batch_size=1,shuffle=False,num_workers=0)
     for idx, (image, target) in enumerate(train_loader):
-        print("idx :{} image: {} target: {}".format(idx, image.size(), target.size()))
-        save_res_im(image, target, target, "res_img.jpg", "/res/test/", draw_ans=False)
+        # print("idx :{} image: {} target: {}".format(idx, image.size(), target.size()))
+        save_res_im(image, target, target, "res_img.jpg", "/res/test/", draw_ans=False, output_size=output_size)
         target = target.permute(0,3,1,2)
         cunt = 0
         for i in range(target.size(2)):
             li = target[0][4][i].tolist()
             li = [1 if i != 0 else 0 for i in li ]
-            print(li)
+            # print(li)
             for l in li:
                 if i == 1:
                     cunt += 1
-        print(cunt)
+        # print(cunt)
         break
 
 
