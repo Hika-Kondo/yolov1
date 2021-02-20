@@ -25,7 +25,7 @@ class Yolo(LightningModule):
         self.im_save = Path("/res/res_im")
         self.im_save.mkdir(exist_ok=True, parents=True)
         self.now_epoch = 1
-    
+
     def forward(self, x):
         return self.net(x)
 

@@ -14,9 +14,22 @@ from dataloader import yoloDataset
 from yolo import Yolo
 
 
+def get_output_size(image_size):
+    """
+    画像の出力サイズを計算する
+
+    """
+    for _ in range(5):
+        image_size = (image_size[0]//2,image_size[1]//2)
+
+    return image_size
+
+
 @hydra.main("./config.yml")
 def main(cfg):
+    output_size = get_output_size(cfg.image_size)
 
+    # def net
     net = resnet50(pred_classes=cfg.pred_classes)
     resnet = models.resnet50(pretrained=True)
     new_state_dict = resnet.state_dict()
@@ -25,15 +38,19 @@ def main(cfg):
         if k in dd.keys() and not k.startswith('fc'):
             dd[k] = new_state_dict[k]
     net.load_state_dict(dd)
-    yolo = Yolo(net, yoloLoss(5, 0.5, cfg.pred_classes), cfg.train_im, cfg.val_im, cfg.target_f, cfg.lr,
+    yolo = Yolo(net, yoloLoss(5, 0.5, cfg.pred_classes, output_size), cfg.train_im, cfg.val_im, cfg.target_f, cfg.lr,
             cfg.epochs, cfg.pred_classes, cfg.batch_size, cfg.im_save)
 
+    # def dataloader
+
     dataset = yoloDataset(root=cfg.train_im, list_file=[cfg.target_f],
-            train=True, transform=[transforms.ToTensor()], pred_classes=cfg.pred_classes)
+            train=True, transform=[transforms.ToTensor()],
+            pred_classes=cfg.pred_classes, image_size=cfg.image_size, output_size=output_size)
     trainloader = DataLoader(dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=6)
 
-    dataset = yoloDataset(root=cfg.train_im, list_file=[cfg.target_val],
-            train=False, transform=[transforms.ToTensor()], pred_classes=cfg.pred_classes)
+    dataset = yoloDataset(root=cfg.train_im, list_file=[cfg.target_f],
+            train=False, transform=[transforms.ToTensor()],
+            pred_classes=cfg.pred_classes, image_size=cfg.image_size, output_size=output_size)
     valloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=6)
 
     checkpoint_callback = ModelCheckpoint(
@@ -51,7 +68,7 @@ def main(cfg):
             # reload_dataloaders_evey_epoch=True,
             callbacks=[checkpoint_callback]
     )
-    
+
     trainer.fit(yolo, trainloader, valloader, )
 
 
