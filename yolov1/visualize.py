@@ -100,7 +100,7 @@ def decoder(pred, output_size):
     return boxes,cls_indexs,probs
 
 
-def nms(bboxes,scores,threshold=0.02):
+def nms(bboxes,scores,threshold=0.9):
     '''
     bboxes(tensor) [N,4]
     scores(tensor) [N,]
@@ -164,7 +164,7 @@ def draw_bb(img, pred, text, bbox, label, output_size):
     pred_boxes, pred_cls_indexs, probs = decoder(pred, output_size)
 
     h,w = img.size
-    print("h:{},w:{}".format(h,w))
+    # print("h:{},w:{}".format(h,w))
     result = []
     box_len = len(pred_boxes)
     for i in range(box_len):
@@ -176,6 +176,10 @@ def draw_bb(img, pred, text, bbox, label, output_size):
         cls_index = pred_cls_indexs[i]
         cls_index = int(cls_index) # convert LongTensor to int
         prob = probs[i]
+        if prob <= 0.7:
+            continue
+        if (x2-x1) * (y2-y1) > h*w*0.2:
+            continue
         result.append([(x1,y1),(x2,y2),prob, cls_index])
 
     for (x_min, y_min), (x_max, y_max), prob, cls_index in result:

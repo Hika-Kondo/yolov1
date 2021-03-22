@@ -38,6 +38,7 @@ class yoloDataset(data.Dataset):
         self.labels = []
         self.mean = (123,117,104)#RGB
         self.image_size = image_size
+        # self.output_size = [output_size[1], output_size[0]]
         self.output_size = output_size
         self.pred_classes = pred_classes
 
@@ -158,10 +159,10 @@ class yoloDataset(data.Dataset):
             # target[int(ij[1]),int(ij[0]),7:9] = wh[i]
             # target[int(ij[1]),int(ij[0]),5:7] = delta_xy
             cunt = 0
-            for line in target.permute(2, 0, 1)[4].tolist():
-                line = [int(i) for i in line]
-                # print(line)
-                cunt += sum(line)
+            # for line in target.permute(2, 0, 1)[4].tolist():
+            #     line = [int(i) for i in line]
+            #     # print(line)
+            #     cunt += sum(line)
         return target
 
     def BGR2RGB(self,img):
@@ -404,6 +405,7 @@ def main():
         # print("idx :{} image: {} target: {}".format(idx, image.size(), target.size()))
         save_res_im(image, target, target, "res_img.jpg", "/res/test/", draw_ans=False, output_size=output_size)
         target = target.permute(0,3,1,2)
+        print(image.size(), target.size())
         cunt = 0
         for i in range(target.size(2)):
             li = target[0][4][i].tolist()

@@ -25,9 +25,9 @@ def get_output_size(image_size):
     return image_size
 
 
-@hydra.main("./config.yml")
+@hydra.main(config_path=".", config_name="config.yml")
 def main(cfg):
-    output_size = get_output_size(cfg.image_size)
+    output_size = cfg.output_size
 
     # def net
     net = resnet50(pred_classes=cfg.pred_classes)
@@ -38,8 +38,8 @@ def main(cfg):
         if k in dd.keys() and not k.startswith('fc'):
             dd[k] = new_state_dict[k]
     net.load_state_dict(dd)
-    yolo = Yolo(net, yoloLoss(5, 0.5, cfg.pred_classes, output_size), cfg.train_im, cfg.val_im, cfg.target_f, cfg.lr,
-            cfg.epochs, cfg.pred_classes, cfg.batch_size, cfg.im_save)
+    yolo = Yolo(net, yoloLoss(output_size=output_size), cfg.train_im, cfg.val_im, cfg.target_f, cfg.lr,
+            cfg.epochs, cfg.pred_classes, cfg.batch_size, cfg.im_save, output_size)
 
     # def dataloader
 

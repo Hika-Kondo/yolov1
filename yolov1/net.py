@@ -138,8 +138,8 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         self.layer5 = self._make_detnet_layer(in_channels=2048)
-        self.conv_end = nn.Conv2d(256, 10+pred_classes, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn_end = nn.BatchNorm2d(10+pred_classes)
+        self.conv_end = nn.Conv2d(256, 5+pred_classes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn_end = nn.BatchNorm2d(5+pred_classes)
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
@@ -191,7 +191,6 @@ class ResNet(nn.Module):
         x = nn.Sigmoid()(x) #归一化到0-1
         # x = x.view(-1,7,7,30)
         x = x.permute(0,2,3,1) #(-1,7,7,30)
-
         return x
 
 
