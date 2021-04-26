@@ -17,3 +17,5 @@ services:
             - ../RawData/val:/val
             - ../RawData/test/:/test
         command: python /src/train.py
+        # command: python /src/predict.py
+        # command: python /src/dataloader.py

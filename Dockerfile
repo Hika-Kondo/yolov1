@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.0-cudnn8-runtime-ubuntu16.04
+FROM nvidia/cuda:11.1-cudnn8-runtime-ubuntu16.04
 
 # Install some basic utilities
 RUN apt-get update && apt-get install -y \
@@ -42,7 +42,7 @@ RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda3-4.5.12-Linux-x86
     rm ~/miniconda.sh
 RUN conda install -y conda
 
-RUN conda install pytorch==1.7.0 cudatoolkit=11.0 torchvision==0.8.1 -c pytorch && \
+RUN conda install pytorch torchvision torchaudio cudatoolkit=11.1 -c pytorch -c conda-forge && \
     conda install -c anaconda scikit-learn==0.23.2 && \
     conda install -c conda-forge matplotlib mlflow tensorboard && \
     conda clean -i -t -y

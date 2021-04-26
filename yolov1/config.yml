@@ -5,6 +5,13 @@ target_f: /tmp/bt_im.txt
 target_val: /tmp/val.txt
 im_save: /res/res_im
 lr: 0.001
-epochs: 20
-batch_size: 2
+epochs: 5
+batch_size: 1
+image_size:
+        - 1292
+        - 485
 
+output_size:
+        # - 16
+        - 41
+        - 16
